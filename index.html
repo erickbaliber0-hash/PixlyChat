@@ -14,37 +14,40 @@ body {
     justify-content: center;
 }
 
-/* PHONE FRAME */
 .app {
     width: 100%;
     max-width: 420px;
     height: 100vh;
-    background: #000;
     display: flex;
     flex-direction: column;
+    background: #000;
 }
 
-/* HEADER (Instagram style) */
+/* HEADER */
 .header {
     background: #000;
     color: white;
     padding: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     border-bottom: 1px solid #222;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.header-title {
+.title {
     font-weight: bold;
 }
 
-.online {
-    font-size: 11px;
-    color: #aaa;
+.logout {
+    background: red;
+    border: none;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 10px;
+    cursor: pointer;
 }
 
-/* CHAT AREA */
+/* CHAT */
 .chat {
     flex: 1;
     overflow-y: auto;
@@ -54,68 +57,33 @@ body {
     gap: 8px;
 }
 
-/* MESSAGE ROW */
 .msg {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    max-width: 80%;
-}
-
-/* PROFILE CIRCLE */
-.pfp {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: gray;
-}
-
-/* MESSAGE BUBBLES */
-.bubble {
+    max-width: 75%;
     padding: 10px 12px;
     border-radius: 18px;
     font-size: 14px;
-    line-height: 1.3;
+    word-wrap: break-word;
 }
 
-/* OTHER USER */
-.other {
-    align-self: flex-start;
-}
-
-.other .bubble {
-    background: #262626;
-    color: white;
-    border-bottom-left-radius: 4px;
-}
-
-/* ME */
 .me {
     align-self: flex-end;
-    flex-direction: row-reverse;
-}
-
-.me .bubble {
     background: #3797f0;
     color: white;
     border-bottom-right-radius: 4px;
 }
 
-/* TIME */
-.time {
-    font-size: 9px;
-    color: #777;
-    margin-top: 3px;
+.other {
+    align-self: flex-start;
+    background: #262626;
+    color: white;
+    border-bottom-left-radius: 4px;
 }
 
-/* INPUT BAR (Instagram DM style) */
+/* INPUT */
 .input {
     display: flex;
     padding: 10px;
     border-top: 1px solid #222;
-    background: #000;
-    position: sticky;
-    bottom: 0;
 }
 
 input {
@@ -136,23 +104,56 @@ button {
     padding: 10px 14px;
     border-radius: 20px;
 }
+
+/* LOGIN */
+.login {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+    color: white;
+    text-align: center;
+}
+
+.login input {
+    width: 100%;
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    background: #111;
+    color: white;
+}
+
+.login button {
+    width: 100%;
+    margin-top: 8px;
+}
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<!-- LOGIN -->
+<div class="login" id="loginBox">
+    <h2>Pixly Chat Login</h2>
 
-<!-- HEADER -->
-<div class="header">
-    <div class="header-title">PixlyChat</div>
-    <div class="online" id="online">● online</div>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+
+    <button onclick="register()">Create Account</button>
+    <button onclick="login()">Login</button>
 </div>
 
-<!-- CHAT -->
+<!-- APP -->
+<div class="app" id="app" style="display:none;">
+
+<div class="header">
+    <div class="title">💬 Pixly Chat</div>
+    <button class="logout" onclick="logout()">Logout</button>
+</div>
+
 <div class="chat" id="chat"></div>
 
-<!-- INPUT -->
 <div class="input">
     <input id="msg" placeholder="Message...">
     <button onclick="send()">Send</button>
@@ -164,17 +165,17 @@ button {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
 getAuth,
-onAuthStateChanged
+createUserWithEmailAndPassword,
+signInWithEmailAndPassword,
+onAuthStateChanged,
+signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import {
 getDatabase,
 ref,
 push,
-onChildAdded,
-set,
-onValue,
-update
+onChildAdded
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -191,44 +192,61 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let user;
+let user = null;
 
-/* ================= AUTH ================= */
+/* LOGIN */
+window.login = function () {
+signInWithEmailAndPassword(auth,
+email.value,
+password.value
+).catch(e => alert(e.message));
+};
+
+/* REGISTER */
+window.register = function () {
+createUserWithEmailAndPassword(auth,
+email.value,
+password.value
+).catch(e => alert(e.message));
+};
+
+/* LOGOUT */
+window.logout = function () {
+signOut(auth);
+};
+
+/* AUTH STATE */
 onAuthStateChanged(auth, (u) => {
 if (u) {
 user = u;
 
-setOnline();
+loginBox.style.display = "none";
+app.style.display = "flex";
+
 loadChat();
-loadTyping();
+} else {
+loginBox.style.display = "block";
+app.style.display = "none";
 }
 });
 
-/* ================= ONLINE STATUS ================= */
-function setOnline() {
-set(ref(db, "status/" + user.uid), {
-email: user.email,
-state: "online"
-});
-}
-
-/* ================= CHAT ================= */
+/* SEND MESSAGE */
 window.send = function () {
-const text = document.getElementById("msg").value;
+if (!user) return;
+
+const text = msg.value;
 if (!text.trim()) return;
 
 push(ref(db, "messages"), {
 text,
 email: user.email,
-uid: user.uid,
-time: new Date().toLocaleTimeString(),
-seen: false
+uid: user.uid
 });
 
-document.getElementById("msg").value = "";
+msg.value = "";
 };
 
-/* ================= LOAD CHAT ================= */
+/* LOAD CHAT */
 function loadChat() {
 onChildAdded(ref(db, "messages"), (snap) => {
 const d = snap.val();
@@ -236,67 +254,18 @@ const d = snap.val();
 const div = document.createElement("div");
 div.classList.add("msg");
 
-if (d.uid === user.uid) {
+if (user && d.uid === user.uid) {
 div.classList.add("me");
 } else {
 div.classList.add("other");
-
-update(ref(db, "messages/" + snap.key), {
-seen: true
-});
 }
 
-div.innerHTML = `
-<div class="meta">${d.email}</div>
-${d.text}
-<div class="status">${d.seen ? "Seen" : "Delivered"}</div>
-`;
+div.innerText = d.text || "";
 
-document.getElementById("chat").appendChild(div);
-document.getElementById("chat").scrollTop = chat.scrollHeight;
-});
-}
+chat.appendChild(div);
 
-/* ================= ONLINE USERS ================= */
-onValue(ref(db, "status"), (snap) => {
-const data = snap.val() || {};
-let count = 0;
-
-Object.values(data).forEach(u => {
-if (u.state === "online") count++;
-});
-
-document.getElementById("online").innerText =
-"🟢 Online Users: " + count;
-});
-
-/* ================= TYPING INDICATOR ================= */
-let typingTimeout;
-
-document.getElementById("msg").addEventListener("input", () => {
-set(ref(db, "typing/" + user.uid), {
-email: user.email
-});
-
-clearTimeout(typingTimeout);
-
-typingTimeout = setTimeout(() => {
-set(ref(db, "typing/" + user.uid), null);
-}, 1000);
-});
-
-function loadTyping() {
-onValue(ref(db, "typing"), (snap) => {
-const data = snap.val() || {};
-let txt = "";
-
-Object.values(data).forEach(u => {
-if (u.email !== user.email) {
-txt += u.email + " is typing...";
-}
-});
-
-document.getElementById("typing").innerText = txt;
+const chatBox = document.getElementById("chat");
+chatBox.scrollTop = chatBox.scrollHeight;
 });
 }
 </script>
