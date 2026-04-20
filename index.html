@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pixly Chat Level 2</title>
+<title>Pixly Chat Level 3</title>
 
 <style>
 body {
@@ -23,19 +23,16 @@ body {
     flex-direction: column;
 }
 
+/* HEADER */
 .header {
     background: #1f2937;
     padding: 10px;
-    color: white;
     text-align: center;
+    color: white;
     font-weight: bold;
 }
 
-.sub {
-    font-size: 11px;
-    opacity: 0.7;
-}
-
+/* CHAT */
 .chat {
     flex: 1;
     overflow-y: auto;
@@ -46,11 +43,13 @@ body {
 
 .msg {
     padding: 8px 12px;
-    margin: 5px 0;
+    margin: 6px 0;
     border-radius: 12px;
     max-width: 75%;
     font-size: 14px;
     position: relative;
+    cursor: pointer;
+    user-select: none;
 }
 
 .me {
@@ -63,17 +62,13 @@ body {
     align-self: flex-start;
 }
 
-.meta {
-    font-size: 10px;
-    opacity: 0.7;
+/* REACTIONS */
+.reaction {
+    font-size: 14px;
+    margin-top: 3px;
 }
 
-.status {
-    font-size: 10px;
-    text-align: right;
-    opacity: 0.6;
-}
-
+/* INPUT */
 .input {
     display: flex;
     border-top: 1px solid #374151;
@@ -81,7 +76,7 @@ body {
 
 input {
     flex: 1;
-    padding: 10px;
+    padding: 12px;
     border: none;
     background: #111827;
     color: white;
@@ -90,13 +85,22 @@ input {
 button {
     background: #22c55e;
     border: none;
-    padding: 10px 15px;
+    padding: 12px 15px;
 }
 
-.typing {
-    font-size: 11px;
-    opacity: 0.6;
-    padding: 5px;
+/* REACTION POPUP */
+.popup {
+    position: absolute;
+    background: #1f2937;
+    padding: 8px;
+    border-radius: 12px;
+    display: none;
+    gap: 8px;
+}
+
+.emoji {
+    cursor: pointer;
+    font-size: 18px;
 }
 </style>
 </head>
@@ -105,11 +109,7 @@ button {
 
 <div class="app">
 
-<div class="header">
-💬 Pixly Chat
-<div class="sub" id="online">Loading...</div>
-<div class="typing" id="typing"></div>
-</div>
+<div class="header">💬 Pixly Chat Level 3</div>
 
 <div class="chat" id="chat"></div>
 
@@ -118,6 +118,14 @@ button {
 <button onclick="send()">Send</button>
 </div>
 
+</div>
+
+<!-- reaction popup -->
+<div class="popup" id="popup">
+    <span class="emoji" onclick="react('👍')">👍</span>
+    <span class="emoji" onclick="react('❤️')">❤️</span>
+    <span class="emoji" onclick="react('😂')">😂</span>
+    <span class="emoji" onclick="react('🔥')">🔥</span>
 </div>
 
 <script type="module">
@@ -132,8 +140,6 @@ getDatabase,
 ref,
 push,
 onChildAdded,
-set,
-onValue,
 update
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -152,113 +158,77 @@ const auth = getAuth(app);
 const db = getDatabase(app);
 
 let user;
+let selectedMsgId = null;
 
-/* ================= AUTH ================= */
+/* AUTH (simple assume logged in from Level 2) */
 onAuthStateChanged(auth, (u) => {
-if (u) {
-user = u;
-
-setOnline();
-loadChat();
-loadTyping();
-}
+if (u) user = u;
 });
 
-/* ================= ONLINE STATUS ================= */
-function setOnline() {
-set(ref(db, "status/" + user.uid), {
-email: user.email,
-state: "online"
-});
-}
-
-/* ================= CHAT ================= */
+/* SEND MESSAGE */
 window.send = function () {
-const text = document.getElementById("msg").value;
+const text = msg.value;
 if (!text.trim()) return;
 
 push(ref(db, "messages"), {
 text,
-email: user.email,
-uid: user.uid,
-time: new Date().toLocaleTimeString(),
-seen: false
+email: user?.email || "guest",
+reaction: ""
 });
 
-document.getElementById("msg").value = "";
+msg.value = "";
 };
 
-/* ================= LOAD CHAT ================= */
-function loadChat() {
+/* LOAD CHAT */
 onChildAdded(ref(db, "messages"), (snap) => {
 const d = snap.val();
 
 const div = document.createElement("div");
 div.classList.add("msg");
 
-if (d.uid === user.uid) {
-div.classList.add("me");
-} else {
-div.classList.add("other");
-
-update(ref(db, "messages/" + snap.key), {
-seen: true
-});
-}
-
 div.innerHTML = `
-<div class="meta">${d.email}</div>
 ${d.text}
-<div class="status">${d.seen ? "Seen" : "Delivered"}</div>
+<div class="reaction">${d.reaction || ""}</div>
 `;
 
-document.getElementById("chat").appendChild(div);
-document.getElementById("chat").scrollTop = chat.scrollHeight;
+div.oncontextmenu = (e) => {
+e.preventDefault();
+showPopup(e.pageX, e.pageY, snap.key);
+};
+
+div.ontouchstart = () => {
+let hold = setTimeout(() => {
+showPopup(event.touches[0].pageX, event.touches[0].pageY, snap.key);
+}, 500);
+
+div.ontouchend = () => clearTimeout(hold);
+};
+
+chat.appendChild(div);
+chat.scrollTop = chat.scrollHeight;
 });
+
+/* POPUP */
+function showPopup(x, y, id) {
+selectedMsgId = id;
+
+popup.style.left = x + "px";
+popup.style.top = y + "px";
+popup.style.display = "flex";
 }
 
-/* ================= ONLINE USERS ================= */
-onValue(ref(db, "status"), (snap) => {
-const data = snap.val() || {};
-let count = 0;
-
-Object.values(data).forEach(u => {
-if (u.state === "online") count++;
+/* REACT */
+window.react = function (emoji) {
+update(ref(db, "messages/" + selectedMsgId), {
+reaction: emoji
 });
 
-document.getElementById("online").innerText =
-"🟢 Online Users: " + count;
+popup.style.display = "none";
+};
+
+document.addEventListener("click", () => {
+popup.style.display = "none";
 });
-
-/* ================= TYPING INDICATOR ================= */
-let typingTimeout;
-
-document.getElementById("msg").addEventListener("input", () => {
-set(ref(db, "typing/" + user.uid), {
-email: user.email
-});
-
-clearTimeout(typingTimeout);
-
-typingTimeout = setTimeout(() => {
-set(ref(db, "typing/" + user.uid), null);
-}, 1000);
-});
-
-function loadTyping() {
-onValue(ref(db, "typing"), (snap) => {
-const data = snap.val() || {};
-let txt = "";
-
-Object.values(data).forEach(u => {
-if (u.email !== user.email) {
-txt += u.email + " is typing...";
-}
-});
-
-document.getElementById("typing").innerText = txt;
-});
-}
 </script>
 
 </body>
