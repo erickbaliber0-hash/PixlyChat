@@ -2,64 +2,44 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pixly Chat Full</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixly Chat Pro</title>
 
 <style>
 body {
+    margin: 0;
     font-family: Arial;
     background: #0b1220;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
-    color: white;
 }
 
-.box {
-    width: 370px;
-    height: 560px;
+.app {
+    width: 100%;
+    max-width: 420px;
+    height: 100vh;
     background: #111827;
-    border-radius: 16px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 .header {
     background: #1f2937;
     padding: 10px;
+    color: white;
     text-align: center;
     font-weight: bold;
 }
 
-.auth {
-    padding: 15px;
-}
-
-input {
-    width: 100%;
-    margin: 5px 0;
-    padding: 10px;
-    border: none;
-    background: #0f172a;
-    color: white;
-    border-radius: 8px;
-}
-
-button {
-    width: 100%;
-    padding: 10px;
-    margin-top: 5px;
-    background: #22c55e;
-    border: none;
-    cursor: pointer;
-    border-radius: 8px;
+.onlineList {
+    font-size: 12px;
+    opacity: 0.8;
 }
 
 .chat {
     flex: 1;
-    padding: 10px;
     overflow-y: auto;
+    padding: 10px;
     display: flex;
     flex-direction: column;
 }
@@ -82,10 +62,9 @@ button {
     align-self: flex-start;
 }
 
-.time {
-    font-size: 9px;
-    opacity: 0.6;
-    text-align: right;
+.user {
+    font-size: 10px;
+    opacity: 0.7;
 }
 
 .input {
@@ -93,46 +72,65 @@ button {
     border-top: 1px solid #374151;
 }
 
-.input input {
+input {
     flex: 1;
-    border-radius: 0;
+    padding: 10px;
+    border: none;
+    background: #111827;
+    color: white;
 }
 
-.logout {
-    background: #ef4444;
+button {
+    background: #22c55e;
+    border: none;
+    padding: 10px 15px;
+}
+
+.login {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+    text-align: center;
+    color: white;
+}
+
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
 }
 </style>
 </head>
 
 <body>
 
-<div class="box">
-
-<div class="header">💬 Pixly Chat</div>
-
-<!-- AUTH -->
-<div class="auth" id="authBox">
-    <h3>Login / Register</h3>
-
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-
-    <button onclick="register()">Create Account</button>
+<div class="login" id="loginBox">
+    <h3>Login</h3>
+    <input id="email" placeholder="Email"><br><br>
+    <input id="password" type="password" placeholder="Password"><br><br>
     <button onclick="login()">Login</button>
+    <button onclick="register()">Create Account</button>
 </div>
 
-<!-- CHAT -->
-<div id="app" style="display:none; flex:1; flex-direction:column;">
+<div class="app" id="app" style="display:none;">
+
+<div class="header">
+💬 Pixly Chat
+<div class="onlineList" id="onlineList">Loading online users...</div>
+</div>
 
 <div class="chat" id="chat"></div>
 
 <div class="input">
-    <input id="msg" placeholder="Type message...">
-    <button onclick="send()">Send</button>
-</div>
-
-<button class="logout" onclick="logout()">Logout</button>
-
+<input id="msg" placeholder="Type message...">
+<button onclick="send()">Send</button>
 </div>
 
 </div>
@@ -143,18 +141,18 @@ import {
 getAuth,
 createUserWithEmailAndPassword,
 signInWithEmailAndPassword,
-onAuthStateChanged,
-signOut
+onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import {
 getDatabase,
 ref,
 push,
-onChildAdded
+onChildAdded,
+set,
+onValue
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// 🔑 CONFIG (your Firebase)
 const firebaseConfig = {
   apiKey: "AIzaSyDYuw8POzVfhxNwmiQAXf86W6RqnUhuem4",
   authDomain: "pixlychat.firebaseapp.com",
@@ -171,42 +169,66 @@ const db = getDatabase(app);
 
 let user = null;
 
-// REGISTER
-window.register = function () {
-const email = emailInput();
-const pass = passInput();
-
-createUserWithEmailAndPassword(auth, email, pass)
-.catch(e => alert(e.message));
-};
-
-// LOGIN
+/* ================= LOGIN ================= */
 window.login = function () {
 const email = emailInput();
 const pass = passInput();
 
-signInWithEmailAndPassword(auth, email, pass)
-.catch(e => alert(e.message));
+signInWithEmailAndPassword(auth, email, pass);
 };
 
-// LOGOUT
-window.logout = function () {
-signOut(auth);
+window.register = function () {
+const email = emailInput();
+const pass = passInput();
+
+createUserWithEmailAndPassword(auth, email, pass);
 };
 
-// AUTH STATE
+function emailInput() {
+return document.getElementById("email").value;
+}
+function passInput() {
+return document.getElementById("password").value;
+}
+
+/* ================= AUTH ================= */
 onAuthStateChanged(auth, (u) => {
 if (u) {
 user = u;
 
-document.getElementById("authBox").style.display = "none";
+document.getElementById("loginBox").style.display = "none";
 document.getElementById("app").style.display = "flex";
 
+setOnline();
 loadChat();
+loadOnlineUsers();
 }
 });
 
-// SEND
+/* ================= ONLINE USERS ================= */
+function setOnline() {
+set(ref(db, "status/" + user.uid), {
+email: user.email,
+state: "online"
+});
+}
+
+function loadOnlineUsers() {
+onValue(ref(db, "status"), (snap) => {
+const data = snap.val() || {};
+let list = "🟢 Online: ";
+
+Object.values(data).forEach(u => {
+if (u.state === "online") {
+list += u.email + " ";
+}
+});
+
+document.getElementById("onlineList").innerText = list;
+});
+}
+
+/* ================= CHAT ================= */
 window.send = function () {
 const text = document.getElementById("msg").value;
 if (!text.trim()) return;
@@ -214,13 +236,13 @@ if (!text.trim()) return;
 push(ref(db, "messages"), {
 text: text,
 email: user.email,
+uid: user.uid,
 time: new Date().toLocaleTimeString()
 });
 
 document.getElementById("msg").value = "";
 };
 
-// LOAD CHAT
 function loadChat() {
 onChildAdded(ref(db, "messages"), (snap) => {
 const d = snap.val();
@@ -228,29 +250,20 @@ const d = snap.val();
 const div = document.createElement("div");
 div.classList.add("msg");
 
-if (d.email === user.email) {
+if (d.uid === user.uid) {
 div.classList.add("me");
 } else {
 div.classList.add("other");
 }
 
 div.innerHTML = `
-<b>${d.email}</b><br>
+<div class="user">${d.email}</div>
 ${d.text}
-<div class="time">${d.time}</div>
 `;
 
 document.getElementById("chat").appendChild(div);
 document.getElementById("chat").scrollTop = chat.scrollHeight;
 });
-}
-
-// helpers
-function emailInput() {
-return document.getElementById("email").value;
-}
-function passInput() {
-return document.getElementById("password").value;
 }
 </script>
 
