@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pixly Chat Pro</title>
+<title>Pixly Chat Level 2</title>
 
 <style>
 body {
@@ -31,9 +31,9 @@ body {
     font-weight: bold;
 }
 
-.onlineList {
-    font-size: 12px;
-    opacity: 0.8;
+.sub {
+    font-size: 11px;
+    opacity: 0.7;
 }
 
 .chat {
@@ -50,6 +50,7 @@ body {
     border-radius: 12px;
     max-width: 75%;
     font-size: 14px;
+    position: relative;
 }
 
 .me {
@@ -62,9 +63,15 @@ body {
     align-self: flex-start;
 }
 
-.user {
+.meta {
     font-size: 10px;
     opacity: 0.7;
+}
+
+.status {
+    font-size: 10px;
+    text-align: right;
+    opacity: 0.6;
 }
 
 .input {
@@ -86,44 +93,22 @@ button {
     padding: 10px 15px;
 }
 
-.login {
-    width: 100%;
-    max-width: 420px;
-    padding: 20px;
-    text-align: center;
-    color: white;
-}
-
-.profile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 12px;
-}
-
-img {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+.typing {
+    font-size: 11px;
+    opacity: 0.6;
+    padding: 5px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="login" id="loginBox">
-    <h3>Login</h3>
-    <input id="email" placeholder="Email"><br><br>
-    <input id="password" type="password" placeholder="Password"><br><br>
-    <button onclick="login()">Login</button>
-    <button onclick="register()">Create Account</button>
-</div>
-
-<div class="app" id="app" style="display:none;">
+<div class="app">
 
 <div class="header">
 💬 Pixly Chat
-<div class="onlineList" id="onlineList">Loading online users...</div>
+<div class="sub" id="online">Loading...</div>
+<div class="typing" id="typing"></div>
 </div>
 
 <div class="chat" id="chat"></div>
@@ -139,8 +124,6 @@ img {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
 getAuth,
-createUserWithEmailAndPassword,
-signInWithEmailAndPassword,
 onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -150,7 +133,8 @@ ref,
 push,
 onChildAdded,
 set,
-onValue
+onValue,
+update
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
@@ -167,64 +151,24 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-let user = null;
-
-/* ================= LOGIN ================= */
-window.login = function () {
-const email = emailInput();
-const pass = passInput();
-
-signInWithEmailAndPassword(auth, email, pass);
-};
-
-window.register = function () {
-const email = emailInput();
-const pass = passInput();
-
-createUserWithEmailAndPassword(auth, email, pass);
-};
-
-function emailInput() {
-return document.getElementById("email").value;
-}
-function passInput() {
-return document.getElementById("password").value;
-}
+let user;
 
 /* ================= AUTH ================= */
 onAuthStateChanged(auth, (u) => {
 if (u) {
 user = u;
 
-document.getElementById("loginBox").style.display = "none";
-document.getElementById("app").style.display = "flex";
-
 setOnline();
 loadChat();
-loadOnlineUsers();
+loadTyping();
 }
 });
 
-/* ================= ONLINE USERS ================= */
+/* ================= ONLINE STATUS ================= */
 function setOnline() {
 set(ref(db, "status/" + user.uid), {
 email: user.email,
 state: "online"
-});
-}
-
-function loadOnlineUsers() {
-onValue(ref(db, "status"), (snap) => {
-const data = snap.val() || {};
-let list = "🟢 Online: ";
-
-Object.values(data).forEach(u => {
-if (u.state === "online") {
-list += u.email + " ";
-}
-});
-
-document.getElementById("onlineList").innerText = list;
 });
 }
 
@@ -234,15 +178,17 @@ const text = document.getElementById("msg").value;
 if (!text.trim()) return;
 
 push(ref(db, "messages"), {
-text: text,
+text,
 email: user.email,
 uid: user.uid,
-time: new Date().toLocaleTimeString()
+time: new Date().toLocaleTimeString(),
+seen: false
 });
 
 document.getElementById("msg").value = "";
 };
 
+/* ================= LOAD CHAT ================= */
 function loadChat() {
 onChildAdded(ref(db, "messages"), (snap) => {
 const d = snap.val();
@@ -254,18 +200,66 @@ if (d.uid === user.uid) {
 div.classList.add("me");
 } else {
 div.classList.add("other");
+
+update(ref(db, "messages/" + snap.key), {
+seen: true
+});
 }
 
 div.innerHTML = `
-<div class="user">${d.email}</div>
+<div class="meta">${d.email}</div>
 ${d.text}
+<div class="status">${d.seen ? "Seen" : "Delivered"}</div>
 `;
 
 document.getElementById("chat").appendChild(div);
 document.getElementById("chat").scrollTop = chat.scrollHeight;
 });
 }
+
+/* ================= ONLINE USERS ================= */
+onValue(ref(db, "status"), (snap) => {
+const data = snap.val() || {};
+let count = 0;
+
+Object.values(data).forEach(u => {
+if (u.state === "online") count++;
+});
+
+document.getElementById("online").innerText =
+"🟢 Online Users: " + count;
+});
+
+/* ================= TYPING INDICATOR ================= */
+let typingTimeout;
+
+document.getElementById("msg").addEventListener("input", () => {
+set(ref(db, "typing/" + user.uid), {
+email: user.email
+});
+
+clearTimeout(typingTimeout);
+
+typingTimeout = setTimeout(() => {
+set(ref(db, "typing/" + user.uid), null);
+}, 1000);
+});
+
+function loadTyping() {
+onValue(ref(db, "typing"), (snap) => {
+const data = snap.val() || {};
+let txt = "";
+
+Object.values(data).forEach(u => {
+if (u.email !== user.email) {
+txt += u.email + " is typing...";
+}
+});
+
+document.getElementById("typing").innerText = txt;
+});
+}
 </script>
 
 </body>
-    </html>
+</html>
