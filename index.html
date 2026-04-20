@@ -1,1 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pixly Chat Login</title>
 
+<style>
+body {
+    font-family: Arial;
+    background: #0b1220;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+}
+
+.container {
+    width: 370px;
+    height: 550px;
+    background: #111827;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.header {
+    background: #1f2937;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.chat {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.msg {
+    padding: 8px 12px;
+    margin: 5px 0;
+    border-radius: 12px;
+    max-width: 75%;
+}
+
+.me {
+    background: #22c55e;
+    align-self: flex-end;
+}
+
+.other {
+    background: #374151;
+    align-self: flex-start;
+}
+
+.input {
+    display: flex;
+    border-top: 1px solid #374151;
+}
+
+input {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: #111827;
+    color: white;
+}
+
+button {
+    background: #22c55e;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.login {
+    position: absolute;
+    background: #111827;
+    width: 300px;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="login" id="loginBox">
+    <h3>Login to Pixly Chat</h3>
+    <button onclick="googleLogin()">Login with Google</button>
+</div>
+
+<div class="container" id="app" style="display:none;">
+    <div class="header">💬 Pixly Chat</div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="input">
+        <input id="msg" placeholder="Type message...">
+        <button onclick="send()">Send</button>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+import {
+  getDatabase,
+  ref,
+  push,
+  onChildAdded
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDYuw8POzVfhxNwmiQAXf86W6RqnUhuem4",
+  authDomain: "pixlychat.firebaseapp.com",
+  databaseURL: "https://pixlychat-default-rtdb.firebaseio.com",
+  projectId: "pixlychat",
+  storageBucket: "pixlychat.firebasestorage.app",
+  messagingSenderId: "930502466662",
+  appId: "1:930502466662:web:278d0de81840ef005521a7"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let userName = "";
+let uid = "";
+
+// LOGIN
+window.googleLogin = function() {
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider);
+};
+
+// CHECK LOGIN STATE
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        userName = user.displayName;
+        uid = user.uid;
+
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("app").style.display = "flex";
+
+        loadMessages();
+    }
+});
+
+// SEND MESSAGE
+window.send = function() {
+    const msg = document.getElementById("msg").value;
+    if (!msg.trim()) return;
+
+    push(ref(db, "messages"), {
+        name: userName,
+        uid: uid,
+        text: msg
+    });
+
+    document.getElementById("msg").value = "";
+};
+
+// LOAD MESSAGES
+function loadMessages() {
+    onChildAdded(ref(db, "messages"), (snapshot) => {
+        const data = snapshot.val();
+
+        const div = document.createElement("div");
+        div.classList.add("msg");
+
+        if (data.uid === uid) {
+            div.classList.add("me");
+        } else {
+            div.classList.add("other");
+        }
+
+        div.innerHTML = `<b>${data.name}</b><br>${data.text}`;
+
+        document.getElementById("chat").appendChild(div);
+        document.getElementById("chat").scrollTop = chat.scrollHeight;
+    });
+}
+</script>
+
+</body>
+  </html>
