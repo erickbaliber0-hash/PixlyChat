@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixly Chat</title>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- USERS -->
+<div class="users" id="usersPanel"></div>
+
+<!-- CHAT -->
+<div class="chatBox">
+
+<!-- HEADER -->
+<div class="header">
+<button onclick="back()">←</button>
+<span id="title">Select User</span>
+<button onclick="toggle()">Users</button>
+</div>
+
+<!-- CHAT MESSAGES -->
+<div class="chat" id="chat"></div>
+
+<!-- INPUT -->
+<div class="input">
+<input id="msg" placeholder="Message..." disabled>
+<button onclick="send()">➤</button>
+</div>
+
+</div>
+
+</div>
+
+<!-- AUTH + CHAT LOGIC -->
+<script type="module" src="auth.js"></script>
+
+</body>
+</html>
