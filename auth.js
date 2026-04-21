@@ -17,45 +17,46 @@ onChildAdded
 
 /* FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyDYuw8POzVfhxNwmiQAXf86W6RqnUhuem4",
-  authDomain: "pixlychat.firebaseapp.com",
-  databaseURL: "https://pixlychat-default-rtdb.firebaseio.com",
-  projectId: "pixlychat",
-  storageBucket: "pixlychat.firebasestorage.app",
-  messagingSenderId: "930502466662",
-  appId: "1:930502466662:web:278d0de81840ef005521a7"
+apiKey: "AIzaSyDYuw8POzVfhxNwmiQAXf86W6RqnUhuem4",
+authDomain: "pixlychat.firebaseapp.com",
+databaseURL: "https://pixlychat-default-rtdb.firebaseio.com",
+projectId: "pixlychat",
+storageBucket: "pixlychat.firebasestorage.app",
+messagingSenderId: "930502466662",
+appId: "1:930502466662:web:278d0de81840ef005521a7"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-/* LOGIN UI */
-const msg = document.getElementById("msg");
-
-/* AUTH FUNCTIONS */
-window.login = () => {
-const email = emailInput.value;
-const pass = passInput.value;
-
-signInWithEmailAndPassword(auth,email,pass)
-.then(()=> location.href="chat.html")
-.catch(e=> msg.innerText=e.message);
-};
-
-window.signup = () => {
-const email = emailInput.value;
-const pass = passInput.value;
-
-createUserWithEmailAndPassword(auth,email,pass)
-.then(()=> location.href="chat.html")
-.catch(e=> msg.innerText=e.message);
-};
-
-/* CHAT SYSTEM */
 let user;
 let chatId = null;
 let listener = null;
+
+/* LOGIN */
+window.login = () => {
+
+const email = document.getElementById("email").value;
+const pass = document.getElementById("pass").value;
+
+signInWithEmailAndPassword(auth,email,pass)
+.then(()=> location.href="chat.html")
+.catch(e=> msg.innerText = e.message);
+
+};
+
+/* SIGNUP */
+window.signup = () => {
+
+const email = document.getElementById("email").value;
+const pass = document.getElementById("pass").value;
+
+createUserWithEmailAndPassword(auth,email,pass)
+.then(()=> location.href="chat.html")
+.catch(e=> msg.innerText = e.message);
+
+};
 
 /* AUTH CHECK */
 onAuthStateChanged(auth,(u)=>{
@@ -68,13 +69,12 @@ return;
 
 user = u;
 
-/* SAVE USER (IMPORTANT FOR USER LIST) */
+/* SAVE USER */
 set(ref(db,"users/"+u.uid),{
 email:u.email,
 uid:u.uid
 });
 
-/* LOAD USERS */
 loadUsers();
 });
 
@@ -113,23 +113,19 @@ title.innerText = email;
 
 msg.disabled = false;
 
-/* hide users */
 usersPanel.classList.add("hide");
 
-/* stop old listener */
 if(listener){
 listener();
 listener = null;
 }
 
-/* new listener */
 listener = onChildAdded(ref(db,"chats/"+chatId),(snap)=>{
 const d = snap.val();
 
 const div = document.createElement("div");
-div.classList.add("msg");
-
-div.classList.add(d.uid === user.uid ? "me" : "other");
+div.className = "msg";
+div.classList.add(d.uid===user.uid?"me":"other");
 
 div.innerText = d.text;
 chat.appendChild(div);
@@ -148,10 +144,10 @@ uid:user.uid,
 time:Date.now()
 });
 
-msg.value = "";
+msg.value="";
 };
 
-/* TOGGLE USERS */
+/* TOGGLE */
 window.toggle = () => {
 usersPanel.classList.toggle("hide");
 };
@@ -162,9 +158,4 @@ usersPanel.classList.remove("hide");
 chat.innerHTML = "";
 title.innerText = "Select User";
 msg.disabled = true;
-
-if(listener){
-listener();
-listener = null;
-}
 };
